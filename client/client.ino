@@ -2,7 +2,10 @@
 #include <SPI.h>
 #include <RHReliableDatagram.h>
 #include <RH_RF95.h>
-
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
 
 // Just hardcoded members expecting to recieve and send data 
 #define CLIENT_ADDRESS 1
@@ -83,6 +86,8 @@ RH_RF95 rf95(RFM95_CS, RFM95_INT);
 // Class to manage message delivery and receipt, using the driver declared above
 RHReliableDatagram manager(rf95, CLIENT_ADDRESS);
 
+Adafruit_BNO055 bno = Adafruit_BNO055(55);
+
 void setup() 
 {
   pinMode(RFM95_RST, OUTPUT);
@@ -119,6 +124,16 @@ void setup()
   // the CAD timeout to non-zero:
   rf95.setCADTimeout(10000);
 
+
+  /* Initialise the sensor */
+  if(!bno.begin())
+  {
+    /* There was a problem detecting the BNO055 ... check your connections */
+    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    while(1);
+  }
+  bno.setExtCrystalUse(true);
+
 }
 
 // Dont put this on the stack:
@@ -126,20 +141,29 @@ uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
 
 void loop()
 {
-  // gather all the sensor data
+  sensors_event_t event;
+  bno.getEvent(&event);
+
+  // BNO055 Data
+  send("BNO055: " + String(event.orientation.x)+ " " + String(event.orientation.y)+ " " + String(event.orientation.z)  );
+
+  // Temp data
+  send("Temp: "+ String(bno.getTemp()));
+
+
+  // Light Data
   uint32_t lightValue = analogRead(A0); // Simple light sensor
+  send("Brightnes: " + String(lightValue));
+  delay(3000);
 
-  String lightPacket = "Brightnes: " + String(lightValue);
-  const char* data = String(lightPacket).c_str();
+}
 
-  Serial.println("Sending to server");
-  // Send data to the SERVER
+void send(String msg){
+  const char* data = String(msg).c_str();
   if (!manager.sendtoWait(  (uint8_t*)data , strlen(data) , SERVER_ADDRESS)){
     // the server did not Ack our message
     Serial.println("sendtoWait failed. Server not responding");
   } else  
-    Serial.println("sendtoWait worked. Server Acked our message!");
-
-  delay(3000);
+    Serial.println("sendtoWait worked. Sent: " + msg);
 
 }
