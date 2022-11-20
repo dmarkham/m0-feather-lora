@@ -127,16 +127,19 @@ uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
 void loop()
 {
   // gather all the sensor data
-  uint8_t data[] = "Hello World!";
-  delay(3000);  
+  uint32_t lightValue = analogRead(A0); // Simple light sensor
+
+  String lightPacket = "Brightnes: " + String(lightValue);
+  const char* data = String(lightPacket).c_str();
 
   Serial.println("Sending to server");
- 
   // Send data to the SERVER
-  if (!manager.sendtoWait(data, sizeof(data), SERVER_ADDRESS)){
+  if (!manager.sendtoWait(  (uint8_t*)data , strlen(data) , SERVER_ADDRESS)){
     // the server did not Ack our message
     Serial.println("sendtoWait failed. Server not responding");
   } else  
     Serial.println("sendtoWait worked. Server Acked our message!");
+
+  delay(3000);
 
 }
